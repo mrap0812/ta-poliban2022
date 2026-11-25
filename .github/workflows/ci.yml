@@ -1,0 +1,24 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mariadb:11
+        env: { MARIADB_DATABASE: ta_kmeans, MARIADB_USER: spk, MARIADB_PASSWORD: spk, MARIADB_ROOT_PASSWORD: root }
+        ports: ["3306:3306"]
+        options: --health-cmd="healthcheck.sh --connect" --health-interval=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.3', extensions: pdo_mysql }
+      - name: Lint semua file PHP
+        run: find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+      - name: Uji unit K-Means
+        run: php tests/kmeans_test.php
+      - name: Skema & data contoh bisa dimuat
+        run: |
+          mysql -h127.0.0.1 -uspk -pspk ta_kmeans < database/schema.sql
+          mysql -h127.0.0.1 -uspk -pspk ta_kmeans < database/seed.sql
+          mysql -h127.0.0.1 -uspk -pspk ta_kmeans -e "SELECT COUNT(*) FROM tb_nilai"
