@@ -1,0 +1,8 @@
+# Apache (XAMPP): tolak akses langsung ke file internal & database dump.
+Options -Indexes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(config|includes|modules|database|tests|docker)(/|$) - [F,L]
+    RewriteRule (^|/)\. - [F,L]
+    RewriteRule \.(sql|md)$ - [F,L]
+</IfModule>

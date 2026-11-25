@@ -1,144 +1,51 @@
+<?php
+/**
+ * Front controller. Hanya halaman yang terdaftar di $routes yang bisa dibuka
+ * (TA 2022 memakai switch + include dari ?page= tanpa cek peran).
+ */
 
+declare(strict_types=1);
+require __DIR__ . '/includes/bootstrap.php';
 
-<!DOCTYPE html>
-<html dir="ltr" lang="en">
+require_login();
 
-<head>
-    <?php
-    require 'config/database.php';
-    session_start();
-    if($_SESSION['priviledge']==""){
-        header("location:login.php");
-    }
-    include "style.php";
-        echo "</head><body>";
-        include "navbar.php";
-        
-        echo "<div class='page-wrapper'>";
-        
-            $path = $_GET['page'] ?? 'dashboard';
+$routes = [
+    // page        => [file modul,          hanya admin?, judul menu]
+    'dashboard' => ['dashboard.php', false, 'Dashboard'],
+    'kk'        => ['kepala_keluarga.php', false, 'Data Kepala Keluarga'],
+    'kuesioner' => ['kuesioner.php',       false, 'Kuesioner Penilaian'],
+    'kalkulasi' => ['kalkulasi.php',       false, 'Kalkulasi K-Means'],
+    'laporan'   => ['laporan.php',         false, 'Laporan Hasil'],
+    'kecamatan' => ['kecamatan.php',       true,  'Kecamatan'],
+    'kriteria'  => ['kriteria.php',        true,  'Kriteria'],
+    'cluster'   => ['cluster.php',         true,  'Cluster & Centroid Awal'],
+    'user'      => ['user.php',            true,  'Pengguna'],
+    'profil'    => ['profil.php',          false, 'Profil Saya'],
+];
 
-            switch ($path) {
-                case 'dashboard':
-                    include_once 'dashboard.php';
-                    break;
-                    
-                // redirect kuesioner
-                case 'kuesioner':
-                    include_once 'kuesioner/index.php';
-                    break;
-                case 'kuesioner-tambah':
-                    include_once 'kuesioner/add.php';
-                    break;
-                case 'kuesioner-hapus':
-                    include_once 'kuesioner/delete.php';
-                    break;
-                case 'kuesioner-edit':
-                    include_once 'kuesioner/edit.php';
-                    break;
-                
-                case 'kuesioner-excel':
-                    include_once 'kuesioner/excel.php';
-                    break;
+$page = (string) ($_GET['page'] ?? 'dashboard');
+if (!isset($routes[$page])) {
+    http_response_code(404);
+    $page = 'dashboard';
+    flash('warning', 'Halaman tidak ditemukan.');
+}
+[$file, $adminOnly, $title] = $routes[$page];
+if ($adminOnly) {
+    require_admin();
+}
 
-                case 'kuesioner-pdf':
-                    include_once 'kuesioner/pdf.php';
-                break;
+// Modul dijalankan di dalam buffer agar bisa redirect/ekspor sebelum layout dicetak.
+ob_start();
+try {
+    require APP_ROOT . '/modules/' . $file;
+} catch (PDOException $ex) {
+    ob_clean();
+    error_log((string) $ex);
+    $msg = $ex->getCode() === '23000'
+        ? 'Data tidak dapat disimpan/dihapus karena bentrok dengan data lain (duplikat atau masih dipakai).'
+        : 'Terjadi kesalahan basis data. Detail tercatat di log server.';
+    echo '<div class="alert alert-danger">' . e($msg) . '</div>';
+}
+$content = ob_get_clean();
 
-                // redirect kalkulasi
-                case 'kalkulasi':
-                    include_once 'kalkulasi/index.php';
-                    break;
-
-                // redirect manajemen data kepala data
-                case 'data':
-                    include_once 'data/index.php';
-                    break;
-                case 'data-tambah':
-                    include_once 'data/add.php';
-                    break;
-                case 'data-tambah-aksi':
-                    include_once 'data/aksi-add.php';
-                break;
-                case 'data-edit':
-                    include_once 'data/edit.php';
-                    break;
-                case 'data-hapus':
-                    include_once 'data/delete.php';
-                    break;
-
-                // manajemen kriteria
-                case 'kriteria':
-                    include_once 'kriteria/index.php';
-                    break;
-                case 'kriteria-tambah':
-                    include_once 'kriteria/add.php';
-                    break;
-                case 'kriteria-edit':
-                    include_once 'kriteria/edit.php';
-                    break;
-                case 'kriteria-hapus':
-                    include_once 'kriteria/delete.php';
-                    break;
-
-                // manajemen kecamatan
-                case 'kecamatan':
-                    include_once 'kecamatan/index.php';
-                    break;
-                case 'kecamatan-tambah':
-                    include_once 'kecamatan/add.php';
-                    break;
-                case 'kecamatan-edit':
-                    include_once 'kecamatan/edit.php';
-                    break;
-                case 'kecamatan-hapus':
-                    include_once 'kecamatan/delete.php';
-                    break;
-
-                // manajemen user
-                case 'user':
-                    include_once 'user/index.php';
-                    break;
-                case 'user-tambah':
-                    include_once 'user/add.php';
-                    break;
-                case 'user-edit':
-                    include_once 'user/edit.php';
-                    break;
-                case 'user-hapus':
-                    include_once 'user/delete.php';
-                    break;
-                case 'user-logout':
-                    header ("location: ../login.php");
-                    if (isset($_SESSION)){
-                        session_destroy();
-                    }
-                    break;
-                default:
-                    # code...
-                    break;
-            }
-
-        ?>
-            <!-- End Logic Routing -->
-
-            <footer class="footer text-center">
-                Dibuat oleh Aldy Firdaus & Muhammad Ramadhan Adiputra
-                <br>Prodi D3 Teknik Informatika POLIBAN. 2022.
-            </footer>
-            <!-- ============================================================== -->
-            <!-- End footer -->
-            <!-- ============================================================== -->
-        </div>
-        <!-- ============================================================== -->
-        <!-- End Page wrapper  -->
-        <!-- ============================================================== -->
-    </div>
-    <!-- ============================================================== -->
-    <!-- End Wrapper -->
-    <!-- ============================================================== -->
-    <!-- ============================================================== -->
-    <?php include "style_bottom.php" ?>
-</body>
-
-</html>
+require APP_ROOT . '/includes/layout.php';
